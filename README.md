@@ -1,167 +1,140 @@
-[中文](https://github.com/siyuan-note/plugin-sample/blob/main/README.zh-CN.md)
+[中文](README.zh-CN.md)
 
-# SiYuan plugin sample
+# MdToMindmap - SiYuan Note Document Mindmap
 
-## Get started
+## Overview
 
-* Make a copy of this repo as a template with the <kbd>Use this template</kbd> button, please note that the repo name must be the same as the plugin name, the default branch must be `main`
-* Clone your repo to a local development folder. For convenience, you can place this folder in your `{workspace}/data/plugins/` folder
-* Install [NodeJS](https://nodejs.org/en/download) and [pnpm](https://pnpm.io/installation), then run `pnpm i` in the command line under your repo folder
-* Execute `pnpm run dev` for real-time compilation
-* Open SiYuan marketplace and enable plugin in downloaded tab
+MdToMindmap is a SiYuan Note plugin that renders headings (`#`/`##`/`###`) and multi-level unordered lists (`-`) from the current document into an interactive mindmap. It supports editing, adding, and deleting nodes directly in the mindmap, and syncs changes back to the SiYuan document via a "Save to Document" button. This enables bidirectional editing between the document and the mindmap while preserving the heading/list formatting hierarchy.
 
-## Development
+## Features
 
-* i18n/*
-* icon.png (160*160)
-* index.css
-* index.js
-* plugin.json
-* preview.png (1024*768)
-* README*.md
-* [Fontend API](https://github.com/siyuan-note/petal)
-* [Backend API](https://github.com/siyuan-note/siyuan/blob/master/API.md)
+- `/mindmap` slash command to open the mindmap with one keystroke
+- Supports h1-h6 heading hierarchy
+- Supports multi-level nested unordered lists
+- Edit node text in the mindmap, then save to update the corresponding document block
+- Add/delete nodes in the mindmap, then sync to the document on save
+- Save strategy: full diff — traverse mindmap nodes, compare with the mapping table, execute create/update/delete
+- Rendering: direct DOM rendering (no iframe, better performance)
+- New node type auto-inherits from context (preserves heading/list formatting, avoids format confusion)
 
-## I18n
+## Limitations (MVP Scope)
 
-In terms of internationalization, our main consideration is to support multiple languages. Specifically, we need to
-complete the following tasks:
+The current version focuses on MVP. The following features are not yet supported:
 
-* Meta information about the plugin itself, such as plugin description and readme
-  * `displayName`, `description` and `readme` fields in plugin.json, and the corresponding README*.md file
-* Text used in the plugin, such as button text and tooltips
-  * src/i18n/*.json language configuration files
-  * Use `this.i18.key` to get the text in the code
+- ❌ Complex block types (code blocks, tables, images, etc.)
+- ❌ Drag-and-drop node reordering
+- ❌ Real-time sync (mindmap won't auto-refresh when the document changes; close and reopen to reload)
+- ❌ Mobile support
+- ❌ Export to image
 
-It is recommended that the plugin supports at least English and Simplified Chinese, so that more people can use it more conveniently. Unsupported languages do not need to be declared in the `displayName`, `description` and `readme` fields in plugin.json.
+## Development Schedule
 
-## plugin.json
+### Phase 1 (Estimated 4-6 days) — Scaffolding & Core Data Flow
 
-A typical example is as follows:
+- [ ] Project initialization: update plugin.json, package.json, add simple-mind-map dependency
+- [ ] `api.ts` — Encapsulate SiYuan kernel API (getChildBlocks, updateBlock, insertBlock, deleteBlock, appendBlock)
+- [ ] `block-tree.ts` — Recursively traverse the document block tree, extract heading (h1-h6) and list (li) hierarchy
+- [ ] Register `/mindmap` slash command
 
-```json
-{
-  "name": "plugin-sample",
-  "author": "Vanessa",
-  "url": "https://github.com/siyuan-note/plugin-sample",
-  "version": "0.4.2",
-  "minAppVersion": "3.3.0",
-  "backends": ["all"],
-  "frontends": ["all"],
-  "disabledInPublish": false,
-  "displayName": {
-    "default": "Plugin Sample",
-    "zh-CN": "插件示例"
-  },
-  "description": {
-    "default": "This is a plugin development sample",
-    "zh-CN": "这是一个插件开发示例"
-  },
-  "readme": {
-    "default": "README.md",
-    "zh-CN": "README.zh-CN.md"
-  },
-  "funding": {
-    "custom": ["https://ld246.com/sponsor"]
-  },
-  "keywords": [
-    "开发者参考",
-    "developer reference",
-    "示例插件"
-  ]
+### Phase 2 (Estimated 5-7 days) — Document → Mindmap Rendering
+
+- [ ] `mindmap-bridge.ts` — Convert block tree to simple-mind-map node tree, each node stores `{ blockId, blockType }`
+- [ ] `mindmap-view.ts` — Modal overlay UI, initialize simple-mind-map instance
+- [ ] Integration test: verify correct rendering of multi-level headings + nested lists
+
+### Phase 3 (Estimated 5-7 days) — Mindmap → Document Sync
+
+- [ ] Edit node text → updateBlock
+- [ ] Add child/sibling node → insertBlock (context type inheritance rules)
+- [ ] Delete node → deleteBlock
+- [ ] "Save to Document" button: full diff to execute create/update/delete
+- [ ] Circular update prevention
+
+### Phase 4 (Estimated 2-3 days) — Polish & Release
+
+- [ ] Interaction optimization (loading indicators, save feedback, error handling)
+- [ ] Build and package, release
+
+**Total estimate: 16-23 days**
+
+## Key Implementation Methods
+
+### 1. New Node Type Determination (Heading vs List)
+
+The node type is determined by its context, with the following rules (priority from high to low):
+
+1. **Has sibling nodes** → use the sibling's blockType
+2. **No sibling, has parent** → check the parent's children:
+   - Has children → use the last child's blockType
+   - No children → if parent is heading, default to li; if parent is li, use li; if parent is document root, use h1
+3. **Heading type and is a child node** → auto-decrement one level (h1→h2, h2→h3, ...)
+4. **Exceeds h6** → downgrade to li
+
+> Unlike existing plugins (e.g., simplemindmap converts all headings to lists), this approach preserves the original formatting type.
+
+### 2. Document → Mindmap Rendering (block-tree.ts)
+
+```typescript
+// Pseudocode
+function buildBlockTree(docId: string): MindMapNode[] {
+    const children = await getChildBlocks(docId)
+    for each child in children:
+        if child.type === 'h':   // heading
+            node = { text: child.content, blockId: child.id, blockType: child.subType }
+            node.children = buildBlockTree(child.id)  // heading may have child blocks
+        if child.type === 'l':   // list
+            node.children = parseListItems(child.id)  // parse list items
+        // skip non-heading, non-list blocks
+    return nodes
 }
 ```
 
-* `name`: Plugin package name, must be the same as the GitHub repository name, and cannot be duplicated with other plugins in the marketplace
-* `author`: Plugin author name
-* `url`: Plugin repo URL
-* `version`: Plugin version number, needs to follow the [semver](https://semver.org/) specification
-* `minAppVersion`: Minimum SiYuan version required to use this plugin
-* `disabledInPublish`: Whether to disable the plugin when using the publish service, defaults to false, i.e., not disabled
-* `backends`: Backend environment required by the plugin, optional values are `windows`, `linux`, `darwin`, `docker`, `android`, `ios`, `harmony` and `all`
-  * `windows`: Windows desktop
-  * `linux`: Linux desktop
-  * `darwin`: macOS desktop
-  * `docker`: Docker
-  * `android`: Android APP
-  * `ios`: iOS APP
-  * `harmony`: HarmonyOS APP
-  * `all`: All environments
-* `frontends`: Frontend environment required by the plugin, optional values are `desktop`, `desktop-window`, `mobile`, `browser-desktop`, `browser-mobile` and `all`
-  * `desktop`: Desktop
-  * `desktop-window`: Desktop window converted from tab
-  * `mobile`: Mobile APP
-  * `browser-desktop`: Desktop browser
-  * `browser-mobile`: Mobile browser
-  * `all`: All environments
-* `displayName`: Plugin name (plain text), displayed in the marketplace list
-  * `default`: Default language, must exist. If the plugin supports English, English should be used here
-  * `zh-CN`, `en` and other languages: optional, must be [BCP 47](https://tools.ietf.org/html/bcp47) tags (e.g. `zh-CN`, `zh-TW`, `en`, `ja`, `pt-BR`)
-* `description`: Plugin description (plain text), displayed in the marketplace list
-  * `default`: Default language, must exist. If the plugin supports English, English should be used here
-  * `zh-CN`, `en` and other languages: optional, must be BCP 47 tags
-* `readme`: Readme file name, displayed in the marketplace details page
-  * `default`: Default language, must exist. If the plugin supports English, English should be used here
-  * `zh-CN`, `en` and other languages: optional, must be BCP 47 tags
-* `funding`: Plugin sponsorship information, only one type will be displayed in the marketplace
-  * `openCollective`: Open Collective name
-  * `patreon`: Patreon name
-  * `github`: GitHub login name
-  * `custom`: Custom sponsorship link list
-* `keywords`: Search keyword list, used for marketplace search function, supplements search keywords beyond the values of `name`, `author`, `displayName`, and `description` fields
+Core: recursively call `getChildBlocks`, only extract blocks of type `h` and `l`/`i`, skip others (p/c/b/t, etc.).
 
-## Package
+### 3. Mindmap → Document Sync (Full Diff)
 
-No matter which method is used to compile and package, we finally need to generate a package.zip, which contains at
-least the following files:
-
-* i18n/* (If the plugin supports multiple languages, language files need to be packaged to this directory, otherwise this directory is not needed)
-* icon.png (recommended size: 160*160, file size should not exceed 20KB)
-* index.css
-* index.js
-* plugin.json
-* preview.png (recommended size: 1024*768, file size should not exceed 200KB)
-* README*.md
-
-## List on the marketplace
-
-* Execute `pnpm run build` to generate package.zip
-* Create a new GitHub release using your new version number as the "Tag version". See here for an
-  example: https://github.com/siyuan-note/plugin-sample/releases
-* Upload the file package.zip as binary attachments
-* Publish the release
-
-If this is the first release, you also need to create a PR to the [Community Bazaar](https://github.com/siyuan-note/bazaar) repository and modify the plugins.json file in it. This file is the index of all community plugin repositories, the format is:
-
-```json
-{
-  "repos": [
-    "username/reponame"
-  ]
+```typescript
+// Pseudocode
+function syncToDocument(mindmapRoot, mapping) {
+    // 1. Flatten the mindmap tree to collect all current nodes
+    const currentNodes = flatten(mindmapRoot)
+    
+    // 2. Compare with the previous mapping table
+    for each node in currentNodes:
+        if node.blockId exists && text changed → updateBlock(node.blockId, node.text)
+        if !node.blockId (new node) → insertBlock / appendBlock → get new blockId, update mapping
+    
+    // 3. Detect deletions
+    for each entry in mapping:
+        if entry.blockId not in currentNodes → deleteBlock(blockId)
+    
+    // 4. Save the updated mapping
+    saveMapping(newMapping)
 }
 ```
 
-After the PR is merged, the bazaar will automatically update the index and deploy through GitHub Actions. For subsequent plugin releases, you only need to follow the above steps to create a new release, and you don't need to PR the community bazaar repository.
+### 4. Save Button vs Real-time Sync
 
-Under normal circumstances, the community bazaar repository will automatically update the index and deploy every hour, and you can check the deployment status at https://github.com/siyuan-note/bazaar/actions.
+MVP uses an explicit "Save" approach rather than real-time sync:
 
-## Developer's Guide
+- After editing the mindmap, the user clicks the "Save to Document" button in the top-right corner
+- The plugin performs a full diff and calls the SiYuan API in batch
+- Upon completion, prompts "Saved successfully, updated X nodes"
+- The mindmap does not auto-refresh when the document changes (close and reopen to load the latest content)
 
-Developers need to pay attention to the following specifications.
+## Tech Stack
 
-### 1. File Reading and Writing Specifications
+| Component | Choice |
+|-----------|--------|
+| Mindmap engine | simple-mind-map (npm) |
+| Plugin framework | SiYuan Plugin API (TypeScript) |
+| Build tool | Webpack 5 |
+| Rendering | Direct DOM rendering (no iframe) |
 
-If plugins or external extensions require direct reading or writing of files under the `data` directory, please use the kernel API to achieve this. **Do not call `fs` or other electron or nodejs APIs directly**, as it may result in data loss during synchronization and cause damage to cloud data.
+## Development Environment
 
-Related APIs can be found at: `/api/file/*` (e.g., `/api/file/getFile`).
+Refer to the official SiYuan plugin development guide: https://github.com/siyuan-note/plugin-sample
 
-### 2. Daily Note Attribute Specifications
+## Changelog
 
-When creating a daily note in SiYuan, a custom-dailynote-yyyymmdd attribute will be automatically added to the document to distinguish it from regular documents.
-
-> For more details, please refer to [Github Issue #9807](https://github.com/siyuan-note/siyuan/issues/9807).
-
-Developers should pay attention to the following when developing the functionality to manually create Daily Notes:
-
-* If `/api/filetree/createDailyNote` is called to create a daily note, the attribute will be automatically added to the document, and developers do not need to handle it separately
-* If a document is created manually by developer's code (e.g., using the `createDocWithMd` API to create a daily note), please manually add this attribute to the document
+See [CHANGELOG.md](CHANGELOG.md)

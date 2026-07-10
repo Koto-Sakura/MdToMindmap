@@ -1,45 +1,34 @@
 {
-  "name": "plugin-sample",
-  "author": "Vanessa",
-  "url": "https://github.com/siyuan-note/plugin-sample",
-  "version": "0.4.8",
+  "name": "MdToMindmap",
+  "author": "Koto-Sakura",
+  "url": "https://github.com/Koto-Sakura/MdToMindmap",
+  "version": "1.0.0",
   "minAppVersion": "3.7.0",
   "kernels": [
     "windows",
     "linux",
     "darwin",
-    "ios",
-    "android",
-    "harmony",
-    "docker",
     "all"
   ],
   "backends": [
     "windows",
     "linux",
     "darwin",
-    "ios",
-    "android",
-    "harmony",
-    "docker",
     "all"
   ],
   "frontends": [
     "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
     "desktop-window",
     "all"
   ],
   "disabledInPublish": false,
   "displayName": {
-    "default": "Plugin Sample",
-    "zh-CN": "插件示例"
+    "default": "MdToMindmap",
+    "zh-CN": "文档思维导图"
   },
   "description": {
-    "default": "This is a plugin development sample",
-    "zh-CN": "这是一个插件开发示例"
+    "default": "Convert document headings and lists into an editable mindmap, with bidirectional sync support.",
+    "zh-CN": "将文档中的标题和列表转换为可编辑的思维导图，支持双向同步。"
   },
   "readme": {
     "default": "README.md",
@@ -49,13 +38,13 @@
     "openCollective": "",
     "patreon": "",
     "github": "",
-    "custom": [
-      "https://ld246.com/sponsor"
-    ]
+    "custom": []
   },
   "keywords": [
-    "开发者参考",
-    "developer reference",
-    "示例插件"
+    "思维导图",
+    "mindmap",
+    "双向编辑",
+    "bidirectional",
+    "md转脑图"
   ]
 }
