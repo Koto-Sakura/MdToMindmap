@@ -1,8 +1,8 @@
 {
-  "name": "plugin-sample",
-  "version": "0.4.8",
-  "description": "This is a sample plugin for SiYuan (https://b3log.org/siyuan)",
-  "main": ".src/index.js",
+  "name": "MdToMindmap",
+  "version": "1.0.0",
+  "description": "Convert SiYuan document headings and lists into an editable mindmap, with bidirectional sync support.",
+  "main": "index.js",
   "scripts": {
     "format": "dprint fmt",
     "format:check": "dprint check",
@@ -29,6 +29,7 @@
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "dprint": "latest",
+    "esbuild": "^0.28.1",
     "esbuild-loader": "^4.4.3",
     "eslint": "^10.4.1",
     "globals": "^17.6.0",
@@ -42,5 +43,8 @@
     "webpack": "^5.107.2",
     "webpack-cli": "^7.0.3",
     "zip-webpack-plugin": "^4.0.3"
+  },
+  "dependencies": {
+    "simple-mind-map": "0.14.0-fix.3"
   }
 }

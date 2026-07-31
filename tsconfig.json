@@ -3,7 +3,8 @@
     "noImplicitAny": true,
     "module": "commonjs",
     "target": "es6",
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*.ts"
