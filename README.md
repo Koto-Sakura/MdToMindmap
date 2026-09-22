@@ -172,3 +172,6 @@ Windows 开发：插件目录通过**目录符号链接（SYMLINKD）**指向开
 ## 更新日志
 
 见 [CHANGELOG.md](CHANGELOG.md)
+
+---
+本项目由 [维云模型开放平台（VSLLM）](https://vsllm.com) 提供 AI 算力支持。
